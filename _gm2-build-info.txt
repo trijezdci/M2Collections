@@ -1,0 +1,15 @@
+BUILD NOTES FOR M2LIFO USING GM2
+
+the library may be built using the command:
+
+$ gm2 -g -I. -fpim4 -fmakeall LIFO.mod
+
+the compiler should then respond with the following information:
+
+gm2 -c -fmakeall0 -g -ftarget-ranlib=/usr/bin/ranlib -ftarget-ar=/usr/bin/ar -fobject-path=.:/opt/gm2/lib/gcc/i486-linux-gnu/4.1.2/gm2/pim:/opt/gm2/lib/gcc/i486-linux-gnu/4.1.2/gm2/logitech -fpim4 -fmakeall -I.:/opt/gm2/lib/gcc/i486-linux-gnu/4.1.2/gm2/pim:/opt/gm2/lib/gcc/i486-linux-gnu/4.1.2/gm2/logitech LIFO.mod
+
+the following files should have been created:
+
+LIFO_m2.cpp
+LIFO.o
+
