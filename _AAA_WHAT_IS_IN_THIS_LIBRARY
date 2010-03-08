@@ -1,0 +1,14 @@
+The Modula-2 Collections Library consists of the following modules:
+
+o  Collections -- defines common types shared by all modules
+o  Hash        -- a general purpose hash function
+o  LIFO        -- a universal stack ADT
+o  FIFO        -- a universal queue ADT
+o  DEQ         -- a universal double ended queue ADT
+o  PQ          -- a universal priority queue ADT
+o  AAT         -- a universal Andersen tree ADT
+o  Splay       -- a universal Splay tree ADT
+o  Patricia    -- a universal Patricia trie ADT
+o  KVS         -- a universal associative array ADT
+
+Status: March, 8, 2010
