@@ -90,17 +90,18 @@ TYPE
 (* ---------------------------------------------------------------------------
  * Priority Comparison Handler type
  * ---------------------------------------------------------------------------
+ *
  * Priority comparison handlers  are called by  priority queues  whenever  the
  * priority  of a value needs to be determined.  The handler associated with a
  * priority queue is authoritative to determine priority for the queue.
  *
- * Handlers take two arguments <value1> and <value2> and return:
+ * Handlers take two arguments of type DataPtr and return:
  *
  *  o  TRUE to indicate <value1> has higher than or equal priority to <value2>
  *  o  FALSE to indicate <value1> has lower priority than <value2> *)
 
-TYPE ComparisonHandler =
-    PROCEDURE ( value1, value2 : DataPtr ) : BOOLEAN ;
+    ComparisonHandler =
+        PROCEDURE ( (* value1 *) DataPtr, (* value2 *) DataPtr ) : BOOLEAN ;
 
 
 (* ---------------------------------------------------------------------------
