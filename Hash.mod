@@ -50,20 +50,24 @@
 
 IMPLEMENTATION (* OF *) MODULE Hash;
 
-(* All bitwise operations should be in SYSTEM and all of them should accept
-   the same argument types.  But GNU Modula-2 doesn't do things this way. *)
-
-FROM SYSTEM IMPORT CAST, BITSET32, SHIFT; (* Shifts take bitsets only. WTF *)
-FROM BitWordOps IMPORT WordAnd; (* Bitwise AND is in a user library. WTF *)
+FROM SYSTEM IMPORT CAST, BITSET32, SHIFT;
 
 
 CONST
 
 (* ---------------------------------------------------------------------------
- * bit mask to apply to final hash value
+ * bit mask constant to apply to final hash value
  * ------------------------------------------------------------------------ *)
 
     finalMask = 07FFFFFFFH;
+
+VAR
+
+(* ---------------------------------------------------------------------------
+ * intermediate variable for bit mask type cast
+ * ------------------------------------------------------------------------ *)
+
+    finalMaskValue : Key;
 
 
 (* ---------------------------------------------------------------------------
@@ -73,7 +77,8 @@ CONST
 PROCEDURE valueForNextChar ( hash : Key; ch : CHAR ) : Key;
 
 BEGIN
-    RETURN ch +
+    (* RETURN ORD(ch) + SHL(hash, 6) + SHL(hash, 16) - hash; *)
+    RETURN CAST(Key, ORD(ch)) +
            CAST(Key, SHIFT(CAST(BITSET32, (hash)), 6)) +
            CAST(key, SHIFT(CAST(BITSET32, (hash)), 16)) - hash;
 END valueForNextChar;
@@ -86,7 +91,8 @@ END valueForNextChar;
 PROCEDURE finalValue ( hash : Key ) : Key;
 
 BEGIN
-    RETURN WordAnd(hash, finalMask);
+    (* RETURN BWAND(hash, finalMask); *)
+    RETURN CAST(Key, CAST(BITSET32, hash) * CAST(BITSET32, finalMaskValue));
 END finalValue;
 
 
@@ -107,15 +113,24 @@ BEGIN
     
     ch := str[index];
     WHILE ch # 0C AND index < HIGH(str) DO
-        hash := ch +
+        (* hash := ORD(ch) + SHL(hash, 6) + SHL(hash, 16) - hash; *)
+        hash := CAST(key, ORD(ch)) +
                 CAST(Key, SHIFT(CAST(BITSET32, (hash)), 6)) +
                 CAST(key, SHIFT(CAST(BITSET32, (hash)), 16)) - hash;
         INC(index);
         ch := str[index];
     END; (* WHILE *)
     
-    RETURN WordAnd(hash, finalMask);
+    (* RETURN BWAND(hash, finalMask); *)
+    RETURN CAST(Key, CAST(BITSET32, hash) * CAST(BITSET32, finalMaskValue));
 END valueForString;
 
 
+(* ---------------------------------------------------------------------------
+ * module initialisation
+ * ------------------------------------------------------------------------ *)
+
+BEGIN
+    (* This nonsense wouldn't be necessary if CAST allowed constants *)
+    finalMaskValue := finalMask;
 END Hash.
