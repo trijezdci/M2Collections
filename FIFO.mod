@@ -57,27 +57,17 @@ FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 TYPE
 
 (* ---------------------------------------------------------------------------
- * Private type : ListEntry
- * ------------------------------------------------------------------------ *)
-
-    ListPtr = POINTER TO ListEntry;
-
-    ListEntry = RECORD
-        value : DataPtr;
-        next  : ListPtr
-    END; (* ListEntry *)
-
-
-(* ---------------------------------------------------------------------------
  * Opaque type : FIFO.Queue
  * ------------------------------------------------------------------------ *)
 
     Queue = POINTER TO QueueDescriptor;
 
     QueueDescriptor = RECORD
-        entryCount : QueueSize;
-        head       : ListPtr;
-        tail       : ListPtr
+        size,
+        entryCount,
+        head,
+        tail,      : QueueSize;
+        array      : ADDRESS (* ARRAY OF DataPtr *)
     END; (* QueueDescriptor *)
 
 
@@ -94,8 +84,42 @@ TYPE
 
 PROCEDURE new ( size : Capacity; VAR status : Status ) : Queue;
 
+VAR
+    newQueue : Queue;
+
 BEGIN
-    (* TO DO *)
+
+    (* zero size means default *)
+    IF size = 0 THEN
+        size := defaultCapacity;
+    END; (* IF *)
+    
+    (* bail out if size is too high *)
+    IF size > maximumCapacity THEN
+        status := invalidCapacity;
+        RETURN NIL;
+    END; (* IF *)
+    
+    (* allocate new queue object *)
+    ALLOCATE(newQueue, TSIZE(Queue) + TSIZE(DataPtr) * (size - 1));
+    
+    (* bail out if allocation failed *)
+    IF newQueue = NIL THEN
+        status := allocationFailed;
+        RETURN NIL;
+    END; (* IF *)
+        
+    (* initialise meta data *)
+    newQueue^.size := size;
+    newQueue^.entryCount := 0;
+    newQueue^.head := 0;
+    newQueue^.tail := 0;
+    newQueue^.array := NIL;
+
+    (* pass status and new stack to caller *)
+    status := success;
+    RETURN newQueue
+    
 END new;
 
 
@@ -112,8 +136,48 @@ END new;
 
 PROCEDURE enqueue ( queue : Queue; value : DataPtr; VAR status : Status );
 
+VAR
+    valuePtr : POINTER TO DataPtr;
+
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if value is NIL *)
+    IF value = NIL THEN
+        status := invalidData;
+        RETURN;
+    END; (* IF *)
+
+    (* bail out if queue is full *)
+    IF queue^.entryCount >= queue^.size THEN
+        status := queueFull;
+        RETURN;
+    END; (* IF *)
+
+    (* store value at head index *)
+
+    (* queue^.array[queue^.head] := value; *)
+    valuePtr := ADR(queue^.array) + TSIZE(DataPtr) * queue^.head;
+    valuePtr^ := value;
+    
+    (* update entry counter *)
+    INC(stack^.entryCount);
+    
+    (* update head index *)
+    INC(queue^.head);
+    IF queue^.head >= queue^.size THEN
+        queue^.head := 0;
+    END; (* IF *)
+
+    (* pass status to caller *)
+    status := success;
+    RETURN
+
 END enqueue;
 
 
@@ -128,8 +192,41 @@ END enqueue;
 
 PROCEDURE dequeue ( queue : Queue; VAR status : Status ) : DataPtr;
 
+VAR
+    valuePtr : POINTER TO DataPtr;
+
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if queue is empty *)
+    IF queue^.entryCount = 0 THEN
+        status := queueEmpty;
+        RETURN;
+    END; (* IF *)
+    
+    (* queue^.array[queue^.tail] *)
+    valuePtr := ADR(queue^.array) + TSIZE(DataPtr) * queue^.tail;
+
+    (* update entry counter *)
+    DEC(queue^.entryCount);
+    
+    (* update tail index *)
+    INC(queue^.tail);
+    IF queue^.tail >= queue^.size THEN
+        queue^.tail := 0;
+    END; (* IF *)
+    
+
+    (* pass status and dequeued entry to caller *)
+    status := success;
+    (* RETURN queue^.array[queue^.tail] *)
+    RETURN valuePtr^
+    
 END dequeue;
 
 
@@ -143,7 +240,16 @@ END dequeue;
 PROCEDURE capacity ( queue : Queue ) : Capacity;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN 0;
+    END; (* IF *)
+    
+    (* pass capacity to caller *)
+    RETURN queue^.size
+    
 END capacity;
 
 
@@ -157,7 +263,16 @@ END capacity;
 PROCEDURE entryCount ( queue : Queue ) : Capacity;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN 0;
+    END; (* IF *)
+    
+    (* pass entry count to caller *)
+    RETURN queue^.entryCount
+    
 END entryCount;
 
 
@@ -171,7 +286,7 @@ END entryCount;
 PROCEDURE isResizable ( queue : Queue ) : BOOLEAN;
 
 BEGIN
-    RETURN FALSE;
+    RETURN FALSE; (* this is a static queue implementation *)
 END isResizable;
 
 
@@ -184,7 +299,17 @@ END isResizable;
 PROCEDURE dispose ( VAR queue : Queue ) : Queue;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN NIL;
+    END; (* IF *)
+    
+    (* deallocate queue object and pass NIL to caller *)
+    DEALLOCATE(queue, TSIZE(Queue) + TSIZE(DataPtr) * (queue^.size - 1));
+    RETURN NIL
+
 END dispose;
 
 
