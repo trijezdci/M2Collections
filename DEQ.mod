@@ -50,21 +50,36 @@
 
 IMPLEMENTATION (* OF *) MODULE DEQ;
 
-
-CONST
-
-(* ---------------------------------------------------------------------------
-// 
-// ---------------------------------------------------------------------------
-*)
+FROM SYSTEM IMPORT ADDRESS, ADR, TSIZE;
+FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 
 
 TYPE
 
 (* ---------------------------------------------------------------------------
-// 
-// ---------------------------------------------------------------------------
-*)
+ * private type:  ListEntry
+ * ------------------------------------------------------------------------ *)
+ 
+    ListPtr = POINTER TO ListEntry;
+
+    ListEntry = RECORD
+        value : DataPtr;
+        prev,
+        next  : ListPtr
+    END; (* ListEntry *)
+
+
+(* ---------------------------------------------------------------------------
+ * type implementation DEQ.Queue
+ * ------------------------------------------------------------------------ *)
+
+    Queue = POINTER TO QueueDescriptor;
+    
+    QueueDescriptor = RECORD
+        entryCount : QueueSize;
+        head,
+        tail       : ListPtr;
+    END; (* QueueDescriptor *)
 
 
 (* ---------------------------------------------------------------------------
@@ -78,8 +93,28 @@ TYPE
 
 PROCEDURE new ( VAR status : Status ) : Queue;
 
+VAR
+    newQueue : Queue;
+
 BEGIN
-    (* TO DO *)
+
+    NEW(newQueue);
+    
+    (* bail out if allocation failed *)
+    IF newQueue = NIL THEN
+        status := allocationFailed;
+        RETURN NIL;
+    END; (* IF *)
+
+    (* initialise meta data *)
+    newQueue^.entryCount := 0;
+    newQueue^.head := NIL;
+    newQueue^.tail := NIL;
+    
+    (* pass status and queue back to caller *)
+    status := success;
+    RETURN newQueue
+
 END new;
 
 
@@ -95,8 +130,54 @@ END new;
 
 PROCEDURE prepend ( queue : Queue; value : DataPtr; VAR status : Status );
 
+VAR
+    newEntry : ListPtr;
+
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if value is NIL *)
+    IF value = NIL THEN
+        status := invalidData;
+        RETURN;
+    END; (* IF *)
+
+    NEW(newEntry);
+    
+    (* bail out if allocation failed *)
+    IF newEntry = NIL THEN
+        status := allocationFailed;
+        RETURN NIL;
+    END; (* IF *)
+
+    (* initialise new entry *)
+    newEntry^.value := value;
+    newEntry^.prev := NIL;
+    
+    (* check if queue is emptry *)
+    IF queue^.entryCount = 0 THEN
+        newEntry^.next := NIL;
+        queue^.head := newEntry;
+        queue^.tail := newEntry;
+    ELSE (* not empty *)
+        newEntry^.next := queue^.head;
+        IF queue^.head # NIL THEN
+            queue^.head^.prev := newEntry;
+        END; (* IF *)
+    END; (* IF *)
+    
+    (* update entry counter *)
+    INC(queue^.entryCount);
+    
+    (* pass status to caller and return *)
+    status := success;
+    RETURN
+
 END prepend;
 
 
@@ -112,8 +193,54 @@ END prepend;
 
 PROCEDURE append ( queue : Queue; value : DataPtr; VAR status : Status );
 
+VAR
+    newEntry : ListPtr;
+
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if value is NIL *)
+    IF value = NIL THEN
+        status := invalidData;
+        RETURN;
+    END; (* IF *)
+
+    NEW(newEntry);
+    
+    (* bail out if allocation failed *)
+    IF newEntry = NIL THEN
+        status := allocationFailed;
+        RETURN NIL;
+    END; (* IF *)
+
+    (* initialise new entry *)
+    newEntry^.value := value;
+    newEntry^.next := NIL;
+
+    (* check if queue is emptry *)
+    IF queue^.entryCount = 0 THEN
+        newEntry^.prev := NIL;
+        queue^.head := newEntry;
+        queue^.tail := newEntry;
+    ELSE (* not empty *)
+        newEntry^.prev := queue^.tail;
+        IF queue^.tail # NIL THEN
+            queue^.tail^.next := newEntry;
+        END; (* IF *)
+    END; (* IF *)
+
+    (* update entry counter *)
+    INC(queue^.entryCount);
+    
+    (* pass status to caller and return *)
+    status := success;
+    RETURN
+    
 END append;
 
 
@@ -128,8 +255,44 @@ END append;
 
 PROCEDURE firstEntry ( queue : Queue; VAR status : Status ) : DataPtr;
 
+VAR
+    thisEntry : ListPtr;
+    thisValue : DataPtr;
+
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if queue is empty *)
+    IF queue^.entryCount = 0 THEN
+        status := queueEmpty;
+        RETURN;
+    END; (* IF *)
+    
+    (* remember first entry and its value *)
+    thisEntry := queue^.head;
+    thisValue := thisEntry^.value;
+    
+    (* unlink the entry from the queue *)
+    queue^.head := queue^.head^.next;
+    IF queue^.head # NIL THEN
+        queue^.head^.prev := NIL;
+    END; (* IF *)
+    
+    (* update entry counter *)
+    DEC(queue^.entryCount);
+    
+    (* deallocate the entry *)
+    DISPOSE(thisEntry);
+    
+    (* return value and status to caller *)
+    success := success;
+    RETURN thisValue;
+
 END firstEntry;
 
 
@@ -144,8 +307,44 @@ END firstEntry;
 
 PROCEDURE lastEntry ( queue : Queue; VAR status : Status ) : DataPtr;
 
+VAR
+    thisEntry : ListPtr;
+    thisValue : DataPtr;
+
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        status := invalidQueue;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if queue is empty *)
+    IF queue^.entryCount = 0 THEN
+        status := queueEmpty;
+        RETURN;
+    END; (* IF *)
+    
+    (* remember last entry and its value *)
+    thisEntry := queue^.tail;
+    thisValue := thisEntry^.value;
+    
+    (* unlink the entry from the queue *)
+    queue^.tail := queue^.tail^.prev;
+    IF queue^.tail # NIL THEN
+        queue^.tail^.next := NIL;
+    END; (* IF *)
+    
+    (* update entry counter *)
+    DEC(queue^.entryCount);
+    
+    (* deallocate the entry *)
+    DISPOSE(thisEntry);
+    
+    (* return value and status to caller *)
+    success := success;
+    RETURN thisValue;
+
 END lastEntry;
 
 
@@ -159,7 +358,14 @@ END lastEntry;
 PROCEDURE capacity ( queue : Queue ) : Capacity;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        RETURN 0;
+    END; (* IF *)
+    
+    RETURN queue^.entryCount;
+    
 END capacity;
 
 
@@ -173,7 +379,14 @@ END capacity;
 PROCEDURE entryCount ( queue : Queue ) : Capacity;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if queue is NIL *)
+    IF queue = NIL THEN
+        RETURN 0;
+    END; (* IF *)
+    
+    RETURN queue^.entryCount;
+    
 END entryCount;
 
 
@@ -187,8 +400,8 @@ END entryCount;
 PROCEDURE isResizable ( queue : Queue ) : BOOLEAN;
 
 BEGIN
-    RETURN TRUE
-END new;
+    RETURN TRUE (* this is a dynamic queue implementation *)
+END isResizable;
 
 
 (* ---------------------------------------------------------------------------
@@ -203,7 +416,11 @@ END new;
 PROCEDURE newIterator ( queue : Queue; VAR status : Status ) : Iterator;
 
 BEGIN
+
     (* TO DO *)
+    
+    RETURN NIL
+    
 END newIterator;
 
 
@@ -221,7 +438,11 @@ END newIterator;
 PROCEDURE iterateNext ( iterator : Iterator; VAR statusStatus ) : DataPtr;
 
 BEGIN
+
     (* TO DO *)
+    
+    RETURN NIL
+    
 END iterateNext;
 
 
@@ -234,7 +455,11 @@ END iterateNext;
 PROCEDURE disposeIterator ( VAR iterator : Iterator ) : Iterator;
 
 BEGIN
+
     (* TO DO *)
+    
+    RETURN NIL
+    
 END disposeIterator;
 
 
@@ -246,8 +471,27 @@ END disposeIterator;
 
 PROCEDURE dispose ( VAR queue : Queue ) : Queue;
 
+VAR
+    thisEntry : ListPtr;
+
 BEGIN
-    (* TO DO *)
+
+    IF queue # NIL THEN
+        
+        (* deallocate all entries *)
+        WHILE queue^.head # NIL DO
+            thisEntry := queue^.head;
+            queue^.head := thisEntry^.next;
+            DISPOSE(thisEntry);
+        END; (* WHILE *)
+        
+        (* deallocate queue *)
+        DISPOSE(queue);
+        
+    END; (* IF *)
+    
+    RETURN NIL
+
 END dispose;
 
 
