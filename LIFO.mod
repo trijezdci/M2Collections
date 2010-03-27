@@ -115,11 +115,11 @@ BEGIN
 
     (* zero size means default *)
     IF initialSize = 0 THEN
-        initialSize := defaultStackSize;
+        initialSize := defaultCapacity;
     END; (* IF *)
     
     (* bail out if initial size is too high *)
-    IF initialSize > maximumStackSize THEN
+    IF initialSize > maximumCapacity THEN
         status := invalidCapacity;
         RETURN NIL;
     END; (* IF *)
@@ -180,7 +180,7 @@ BEGIN
     END; (* IF *)
 
     (* bail out if stack is full *)
-    IF stack^.entryCount >= maximumStackSize THEN
+    IF stack^.entryCount >= maximumCapacity THEN
         status := stackFull;
         RETURN;
     END; (* IF *)
