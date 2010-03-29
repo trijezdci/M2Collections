@@ -57,10 +57,17 @@ FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 TYPE
 
 (* ---------------------------------------------------------------------------
+ * private type: Octet
+ * ------------------------------------------------------------------------ *)
+
+    Octet = [0 .. 255];
+
+
+(* ---------------------------------------------------------------------------
  * private type: BinomialQueueNode
  * ------------------------------------------------------------------------ *)
 
-    NodePtr = POINTER TO Node;
+    NodePtr = POINTER TO BinomialQueueNode;
 
     BinomialQueueNode = RECORD
         value : DataPtr;
