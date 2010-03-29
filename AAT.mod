@@ -58,16 +58,8 @@
 
 IMPLEMENTATION (* OF *) MODULE AAT;
 
-FROM Collections IMPORT Capacity, DataPtr, Key, Status;
-
-
-CONST
-
-(* ---------------------------------------------------------------------------
- * Synonyms for status codes
- * ------------------------------------------------------------------------ *)
- 
-    invalidTree = invalidCollection;
+FROM SYSTEM IMPORT ADR, ADDRESS, TSIZE;
+FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 
 
 TYPE
@@ -84,7 +76,7 @@ TYPE
         value : DataPtr;
         left,
         right : NodePtr;
-    END; (* TreeDescriptor *)
+    END; (* NodeDescriptor *)
 
 
 (* ---------------------------------------------------------------------------
@@ -128,8 +120,27 @@ VAR
 
 PROCEDURE new ( VAR status : Status ) : Tree;
 
+VAR
+    newTree : Tree;
+    
 BEGIN
-    (* TO DO *)
+
+    (* allocate new tree *)
+    NEW(newTree);
+    
+    (* bail out if allocations failed *)
+    IF newTree = NIL THEN
+        status := allocationFailed;
+        RETURN NIL;
+    END; (* IF *)
+    
+    (* initialise new tree *)
+    newTree^.entryCount := 0;
+    newTree^.root := bottom;
+    
+    (* pass status and return new tree to caller *)
+    RETURN newTree;
+    
 END new;
 
 
