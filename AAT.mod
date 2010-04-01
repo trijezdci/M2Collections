@@ -159,32 +159,32 @@ PROCEDURE storeEntry ( tree   : Tree;
                        value  : DataPtr;
                    VAR status : Status );
 VAR
-	newRoot : NodePtr;
+    newRoot : NodePtr;
 
 BEGIN
     
-	(* bail out if tree is NIL *)
-	IF tree = NIL THEN
-		status := invalidTree;
-		RETURN;
-	END; (* IF *)
-	
-	(* bail out if value is NIL *)
-	IF value = NIL THEN
-		status := invalidData;
-		RETURN;
-	END; (* IF *)
-	
-	(* insert entry *)
-	newRoot := insert(tree^.root, key, value, status);
-	
-	IF status = success THEN
-		tree^.root := newRoot;
-		INC(tree^.entryCount);
-	END; (* IF *)
-	
-	RETURN;
-	
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        status := invalidTree;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if value is NIL *)
+    IF value = NIL THEN
+        status := invalidData;
+        RETURN;
+    END; (* IF *)
+    
+    (* insert entry *)
+    newRoot := insert(tree^.root, key, value, status);
+    
+    IF status = success THEN
+        tree^.root := newRoot;
+        INC(tree^.entryCount);
+    END; (* IF *)
+    
+    RETURN;
+    
 END storeEntry;
 
 
@@ -201,48 +201,48 @@ PROCEDURE valueForKey ( tree   : Tree;
                         key    : Key;
                     VAR status : Status ) : DataPtr;
 VAR
-	thisNode : NodePtr;
+    thisNode : NodePtr;
 
 BEGIN
     
-	(* bail out if tree is NIL *)
-	IF tree = NIL THEN
-		status := invalidTree;
-		RETURN NIL;
-	END; (* IF *)
-	
-	(* set sentinel's key to search key *)
-	bottom->key := key;
-	
-	(* start at the root *)
-	thisNode := tree^.root;
-	
-	(* search until key found or bottom of tree reached *)
-	WHILE key # thisNode^.key DO
-	
-		(* move down left if key is less than key of current node *)
-		IF key < this^.key THEN
-			thisNode := thisNode^.left;
-		
-		(* move down right if key is greater than key of current node *)
-		ELSIF key > this^.key THEN
-			thisNode := thisNode^.right;
-		END; (* IF *)
-		
-	END; (* WHILE *)
-	
-	(* reset sentinel's key *)
-	bottom^.key = 0;
-	
-	(* check whether or not bottom has been reached *)
-	IF thisNode # bottom THEN
-		status := success;
-		RETURN thisNode^.value;
-	ELSE (* bottom reached means key not found *)
-		status := entryNotFound;
-		RETURN NIL;
-	END; (* IF *)
-	
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        status := invalidTree;
+        RETURN NIL;
+    END; (* IF *)
+    
+    (* set sentinel's key to search key *)
+    bottom->key := key;
+    
+    (* start at the root *)
+    thisNode := tree^.root;
+    
+    (* search until key found or bottom of tree reached *)
+    WHILE key # thisNode^.key DO
+    
+        (* move down left if key is less than key of current node *)
+        IF key < this^.key THEN
+            thisNode := thisNode^.left;
+        
+        (* move down right if key is greater than key of current node *)
+        ELSIF key > this^.key THEN
+            thisNode := thisNode^.right;
+        END; (* IF *)
+    
+    END; (* WHILE *)
+    
+    (* reset sentinel's key *)
+    bottom^.key = 0;
+    
+    (* check whether or not bottom has been reached *)
+    IF thisNode # bottom THEN
+        status := success;
+        RETURN thisNode^.value;
+    ELSE (* bottom reached means key not found *)
+        status := entryNotFound;
+        RETURN NIL;
+    END; (* IF *)
+
 END valueForKey;
 
 
@@ -259,26 +259,26 @@ PROCEDURE removeEntry ( tree   : Tree;
                         key    : Key;
                     VAR status : Status );
 VAR
-	newRoot : NodePtr;
+    newRoot : NodePtr;
 
 BEGIN
 
-	(* bail out if tree is NIL *)
-	IF tree = NIL THEN
-		status := invalidTree;
-		RETURN;
-	END; (* IF *)
-	
-	(* remove entry *)
-	newRoot := remove(tree^.root, key, status);
-	
-	IF status = success THEN
-		tree^.root := newRoot;
-		DEC(tree^.entryCount);
-	END; (* IF *)
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        status := invalidTree;
+        RETURN;
+    END; (* IF *)
+    
+    (* remove entry *)
+    newRoot := remove(tree^.root, key, status);
+    
+    IF status = success THEN
+        tree^.root := newRoot;
+        DEC(tree^.entryCount);
+    END; (* IF *)
+    
+    RETURN;
 
-	RETURN;
-	
 END removeEntry;
 
 
@@ -293,13 +293,13 @@ PROCEDURE capacity ( tree : Tree ) : Capacity;
 
 BEGIN
 
-	(* bail out if tree is NIL *)
-	IF tree = NIL THEN
-		RETURN 0;
-	END; (* IF *)
-	
-	RETURN tree^.entryCount;
-	
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        RETURN 0;
+    END; (* IF *)
+    
+    RETURN tree^.entryCount;
+
 END capacity;
 
 
@@ -314,13 +314,13 @@ PROCEDURE entryCount ( tree : Tree ) : Capacity;
 
 BEGIN
 
-	(* bail out if tree is NIL *)
-	IF tree = NIL THEN
-		RETURN 0;
-	END; (* IF *)
-	
-	RETURN tree^.entryCount;
-	
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        RETURN 0;
+    END; (* IF *)
+    
+    RETURN tree^.entryCount;
+
 END entryCount;
 
 
@@ -348,17 +348,18 @@ PROCEDURE dispose ( VAR tree : Tree ) : Tree;
 
 BEGIN
 
-	IF tree # NIL THEN
-		
-		(* deallocate all nodes *)
-		removeAll(tree^.root);
-		
-		(* deallocate descriptor *)
-		DISPOSE();
-		
-	END; (* IF *)
-	
-	RETURN NIL;
+    IF tree # NIL THEN
+    
+        (* deallocate all nodes *)
+        removeAll(tree^.root);
+        
+        (* deallocate descriptor *)
+        DISPOSE();
+    
+    END; (* IF *)
+    
+    RETURN NIL;
+
 END dispose;
 
 
@@ -372,7 +373,7 @@ END dispose;
 PROCEDURE skew ( node : NodePtr ) : NodePtr;
 
 BEGIN
-	(* TO DO *)
+    (* TO DO *)
 END skew;
 
 
@@ -388,7 +389,7 @@ END skew;
 PROCEDURE split ( node : NodePtr ) : NodePtr;
 
 BEGIN
-	(* TO DO *)
+    (* TO DO *)
 END split;
 
 
@@ -406,11 +407,11 @@ END split;
 
 PROCEDURE insert ( node  : NodePtr;
                    key   : Key;
-				   value : DataPtr;
-			  VAR status : Status ) : NodePtr;
+                   value : DataPtr;
+              VAR status : Status ) : NodePtr;
 
 BEGIN
-	(* TO DO *)
+    (* TO DO *)
 END insert;
 
 
@@ -426,12 +427,10 @@ END insert;
  * The  status of the operation  is passed back  in <status>.  NIL must not be
  * passed in for <node>. *)
 
-PROCEDURE remove ( node  : NodePtr;
-                   key   : Key;
-			  VAR status : Status ) : NodePtr;
+PROCEDURE remove ( node : NodePtr; key : Key; VAR status : Status ) : NodePtr;
 
 BEGIN
-	(* TO DO *)
+    (* TO DO *)
 END remove;
 
 
@@ -445,7 +444,7 @@ END remove;
 PROCEDURE removeAll ( node : NodePtr );
 
 BEGIN
-	(* TO DO *)
+    (* TO DO *)
 END removeAll;
 
 
