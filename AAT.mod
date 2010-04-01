@@ -363,6 +363,10 @@ BEGIN
 END dispose;
 
 
+(* ===========================================================================
+ * P r i v a t e   F u n c t i o n s   a n d   P r o c e d u r e s
+ * ======================================================================== *)
+
 (* ---------------------------------------------------------------------------
  * private function:  skew( node )
  * ---------------------------------------------------------------------------
@@ -372,8 +376,21 @@ END dispose;
  
 PROCEDURE skew ( node : NodePtr ) : NodePtr;
 
+VAR
+    tempNode : NodePtr;
+    
 BEGIN
-    (* TO DO *)
+
+    (* rotate right if left child has same level *)
+    IF node^.level = node^.left^.level THEN
+        tempNode := node;
+        node := node^.left;
+        tempNode^.left := node^.right;
+        node^.right := tempNode;
+    END; (* IF *)
+    
+    RETURN node;
+    
 END skew;
 
 
@@ -388,8 +405,22 @@ END skew;
  
 PROCEDURE split ( node : NodePtr ) : NodePtr;
 
+VAR
+    tempNode : NodePtr;
+
 BEGIN
-    (* TO DO *)
+
+    (* rotate left if there are two right children on same level *)
+    IF node^level = node^.right^.right^.level THEN
+        tempNode := node;
+        node := node^.right;
+        tempNode^.right := node^.left;
+        node^.right := tempNode;
+        INC(node^.level);
+    END; (* IF *)
+    
+    RETURN node;
+
 END split;
 
 
@@ -409,9 +440,68 @@ PROCEDURE insert ( node  : NodePtr;
                    key   : Key;
                    value : DataPtr;
               VAR status : Status ) : NodePtr;
+VAR
+    newNode : NodePtr;
 
 BEGIN
-    (* TO DO *)
+
+    IF node = bottom THEN
+    
+        (* allocate a new node *)
+        NEW(newNode);
+        
+        (* bail out if allocation failed *)
+        IF newNode = NIL THEN
+            status := allocationFailed;
+            RETURN NIL;
+        END; (* IF *)
+        
+        (* initialise the new node *)
+        newNode^.level := 1;
+        newNode^.key := key;
+        newNode^.value := value;
+        newNode^.left := bottom;
+        newNode^.right := bottom;
+        
+        (* link the new node to the tree *)
+        node := newNode;
+    
+    ELSIF node^.key > key THEN
+    
+        (* recursive insert left *)
+        node := insert(node^.left, key, value, status);
+        
+        (* bail out if allocation failed *)
+        IF status = allocationFailed THEN
+            RETURN NIL;
+        END; (* IF *)
+    
+    ELSIF node^.key < key THEN
+    
+        (* recursive insert right *)
+        node := insert(node^.right, key, value, status);
+
+        (* bail out if allocation failed *)
+        IF status = allocationFailed THEN
+            RETURN NIL;
+        END; (* IF *)        
+        
+    ELSE (* key already exists *)
+        
+        (* bail out *)
+        status := keyNotUnique;
+        RETURN NIL;
+    
+    END; (* IF *)
+    
+    (* rebalance the tree *)
+    node := skew(node);
+    node := split(node);
+    
+    (* pass status and return the new root node to caller *)
+    status := success;
+    RETURN node;
+
 END insert;
 
 
@@ -430,7 +520,58 @@ END insert;
 PROCEDURE remove ( node : NodePtr; key : Key; VAR status : Status ) : NodePtr;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if bottom has been reached *)
+    IF node = bottom THEN
+        status := entryNotFound;
+        RETURN NIL;
+    END; (* IF *)
+    
+    (* move down recursively until key is found or bottom is reached *)
+    
+    previousNode := node;
+    
+    (* move left if search key is less than current node's key *)
+    IF key < node^key THEN
+        node := remove(node^.left, key, status);
+    
+    (* move right if search key is not less than current node's key *)
+    ELSE
+        candidateNode := node;
+        node := remove(node^.right, key, status);
+    END; (* IF *)
+    
+    (* remove entry *)
+    IF node = previousNode AND
+       candidateNode # bottom AND
+       candidateNode^.key = key THEN
+       
+       candidateNode^.key := node^.key;
+       candidateNode := bottom;
+       node := node^.right;
+       
+       DISPOSE(previousNode);
+       status := success;
+       
+    (* rebalance on the way back up *)
+    ELSIF node^.level - 1 > node^.left^.level OR
+          node^.level - 1 < node^.right^.level THEN
+          
+        DEC(node^.level);
+        IF node^.level < node^.right^.level THEN
+            node^.right^.level := node^.level;
+        END; (* IF *)
+        
+        node := skew(node);
+        node := skew(node^.right);
+        node := skew(node^.right^.right);
+        node := split(node);
+        node := split(node^.right);
+    
+    END; (* IF *)
+    
+    RETURN node;
+
 END remove;
 
 
@@ -444,7 +585,23 @@ END remove;
 PROCEDURE removeAll ( node : NodePtr );
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if already at the bottom *)
+    IF node = bottom THEN
+        RETURN;
+    END; (* IF *)
+    
+    (* remove the left subtree *)
+    removeAll(node^.left);
+    
+    (* remove the right subtree *)
+    removeAll(node^.right);
+    
+    (* deallocated descriptor *)
+    DISPOSE(node);
+    
+    RETURN;
+    
 END removeAll;
 
 
