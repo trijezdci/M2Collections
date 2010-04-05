@@ -58,16 +58,8 @@
 
 IMPLEMENTATION (* OF *) MODULE Splay;
 
-FROM Collections IMPORT Capacity, DataPtr, Key, Status;
-
-
-CONST
-
-(* ---------------------------------------------------------------------------
- * Synonyms for status codes
- * ------------------------------------------------------------------------ *)
- 
-    invalidTree = invalidCollection;
+FROM SYSTEM IMPORT ADR, ADDRESS, TSIZE;
+FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 
 
 TYPE
@@ -83,7 +75,7 @@ TYPE
         value : DataPtr;
         left,
         right : NodePtr;
-    END; (* TreeDescriptor *)
+    END; (* NodeDescriptor *)
 
 
 (* ---------------------------------------------------------------------------
@@ -109,14 +101,6 @@ VAR
 
 
 (* ---------------------------------------------------------------------------
- * temporary node pointers for use during node removal
- * ------------------------------------------------------------------------ *)
-
-    previousNode,
-    candidateNode : NodePtr;  (* both initialised to NIL *)
-
-
-(* ---------------------------------------------------------------------------
  * function:  Splay.new ( status )
  * ---------------------------------------------------------------------------
  *
@@ -127,8 +111,27 @@ VAR
 
 PROCEDURE new ( VAR status : Status ) : Tree;
 
+VAR
+    newTree : Tree;
+
 BEGIN
-    (* TO DO *)
+
+    (* allocate new tree *)
+    NEW(newTree);
+    
+    (* bail out if allocations failed *)
+    IF newTree = NIL THEN
+        status := allocationFailed;
+        RETURN NIL;
+    END; (* IF *)
+    
+    (* initialise new tree *)
+    newTree^.entryCount := 0;
+    newTree^.root := bottom;
+    
+    (* pass status and return new tree to caller *)
+    RETURN newTree;
+    
 END new;
 
 
@@ -146,9 +149,33 @@ PROCEDURE storeEntry ( tree   : Tree;
                        key    : Key;
                        value  : DataPtr;
                    VAR status : Status );
+VAR
+    newRoot : NodePtr;
 
 BEGIN
-    (* TO DO *)
+    
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        status := invalidTree;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if value is NIL *)
+    IF value = NIL THEN
+        status := invalidData;
+        RETURN;
+    END; (* IF *)
+    
+    (* insert entry *)
+    newRoot := insert(tree^.root, key, value, status);
+    
+    IF status = success THEN
+        tree^.root := newRoot;
+        INC(tree^.entryCount);
+    END; (* IF *)
+    
+    RETURN;
+    
 END storeEntry;
 
 
@@ -164,9 +191,49 @@ END storeEntry;
 PROCEDURE valueForKey ( tree   : Tree;
                         key    : Key;
                     VAR status : Status ) : DataPtr;
+VAR
+    thisNode : NodePtr;
 
 BEGIN
-    (* TO DO *)
+    
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        status := invalidTree;
+        RETURN NIL;
+    END; (* IF *)
+    
+    (* set sentinel's key to search key *)
+    bottom->key := key;
+    
+    (* start at the root *)
+    thisNode := tree^.root;
+    
+    (* search until key found or bottom of tree reached *)
+    WHILE key # thisNode^.key DO
+    
+        (* move down left if key is less than key of current node *)
+        IF key < this^.key THEN
+            thisNode := thisNode^.left;
+        
+        (* move down right if key is greater than key of current node *)
+        ELSIF key > this^.key THEN
+            thisNode := thisNode^.right;
+        END; (* IF *)
+    
+    END; (* WHILE *)
+    
+    (* reset sentinel's key *)
+    bottom^.key = 0;
+    
+    (* check whether or not bottom has been reached *)
+    IF thisNode # bottom THEN
+        status := success;
+        RETURN thisNode^.value;
+    ELSE (* bottom reached means key not found *)
+        status := entryNotFound;
+        RETURN NIL;
+    END; (* IF *)
+
 END valueForKey;
 
 
@@ -182,9 +249,27 @@ END valueForKey;
 PROCEDURE removeEntry ( tree   : Tree;
                         key    : Key;
                     VAR status : Status );
+VAR
+    newRoot : NodePtr;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        status := invalidTree;
+        RETURN;
+    END; (* IF *)
+    
+    (* remove entry *)
+    newRoot := remove(tree^.root, key, status);
+    
+    IF status = success THEN
+        tree^.root := newRoot;
+        DEC(tree^.entryCount);
+    END; (* IF *)
+    
+    RETURN;
+
 END removeEntry;
 
 
@@ -198,7 +283,14 @@ END removeEntry;
 PROCEDURE capacity ( tree : Tree ) : Capacity;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        RETURN 0;
+    END; (* IF *)
+    
+    RETURN tree^.entryCount;
+
 END capacity;
 
 
@@ -212,7 +304,14 @@ END capacity;
 PROCEDURE entryCount ( tree : Tree ) : Capacity;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if tree is NIL *)
+    IF tree = NIL THEN
+        RETURN 0;
+    END; (* IF *)
+    
+    RETURN tree^.entryCount;
+
 END entryCount;
 
 
@@ -226,7 +325,7 @@ END entryCount;
 PROCEDURE isResizable ( tree : Tree ) : BOOLEAN;
 
 BEGIN
-    RETURN TRUE
+    RETURN TRUE; (* this is a dynamic data structure *)
 END isResizable;
 
 
@@ -239,8 +338,262 @@ END isResizable;
 PROCEDURE dispose ( VAR tree : Tree ) : Tree;
 
 BEGIN
-    (* TO DO *)
+
+    IF tree # NIL THEN
+    
+        (* deallocate all nodes *)
+        removeAll(tree^.root);
+        
+        (* deallocate descriptor *)
+        DISPOSE(tree);
+    
+    END; (* IF *)
+    
+    RETURN NIL;
+
 END dispose;
+
+
+(* ===========================================================================
+ * P r i v a t e   F u n c t i o n s   a n d   P r o c e d u r e s
+ * ======================================================================== *)
+
+(* ---------------------------------------------------------------------------
+ * private function:  splayTopDown( node )
+ * ---------------------------------------------------------------------------
+ *
+ * Rearranges the tree  whose root is <node> such  that the node  whose key is
+ * <key> moves to the top.  If no node with <key> is present in the tree, then
+ * the node that would be its closest neighbour is moved to the top instead.
+ *
+ * Returns the new root node.  NIL must not be passed in for <node>. *)
+
+PROCEDURE splayTopDown ( VAR node : NodePtr; key : Key ) : NodePtr;
+
+VAR
+    N : Node;
+    tempNode, leftSubTree, rightSubTree : NodePtr;
+
+BEGIN
+
+    IF node = bottom THEN
+        RETURN node;
+    END; (* IF *)
+    
+    N.left = bottom;
+    N.right = bottom;
+    leftSubTree := N;
+    rightSubTree := N;
+    
+    LOOP
+        
+        IF key < node^.key THEN
+            
+            (* done when bottom reached *)
+            IF node^.left = bottom THEN
+                EXIT; (* LOOP *)
+            END; (* IF *);
+            
+            (* rotate right if key is less than current node's key *)
+            IF key < node^.left^.key THEN
+                tempNode := node^.left;
+                node^.left := tempNode^.right;
+                tempNode^.right := node;
+                node := tempNode;
+                
+                (* done when bottom reached *)
+                IF node^.left = bottom THEN
+                    EXIT; (* LOOP *)
+                END; (* IF *)
+                
+            END; (* IF *)
+            
+            (* link right *)
+            leftSubTree^.left := node;
+            rightSubTree^.left := node;
+            node := node^.left;
+        
+        ELSIF key > node^.key THEN
+            
+            (* done when bottom reached *)
+            IF node^.right = bottom THEN
+                EXIT; (* LOOP *)
+            END; (* IF *);
+            
+            (* rotate left if key is less than current node's key *)
+            IF key < node^.right^.key THEN
+                tempNode := node^.right;
+                node^.right := tempNode^.left;
+                tempNode^.left := node;
+                node := tempNode;
+                
+                (* done when bottom reached *)
+                IF node^.right = bottom THEN
+                    EXIT; (* LOOP *)
+                END; (* IF *)
+            
+            END; (* IF *)
+            
+            (* link left *)
+            leftSubTree^.right := node;
+            leftSubTree^.left := node;
+            node := node^.right;
+        
+        ELSE (* key = node^.key *)
+            EXIT; (* LOOP *)
+        END; (* IF *)
+    
+    END; (* LOOP *)
+    
+    (* reassemble the tree *)
+    leftSubTree^.right := node^.left;
+    rightSubTree^.left := node^.right;
+    node^.left := N.right;
+    node^.right := N.left;
+    
+    RETURN node;
+    
+END splayTopDown;
+
+
+(* ---------------------------------------------------------------------------
+ * private function:  insert( node, key, value, status )
+ * ---------------------------------------------------------------------------
+ *
+ * Recursively inserts  a new entry for <key> with <value> into the tree whose
+ * root node is <node>.  Returns the new root node  of the resulting tree.  If
+ * allocation fails  or  if a node with the same key already exists,  then  NO
+ * entry will be inserted and the current root node is returned.
+ *
+ * The  status of the operation  is passed back  in <status>.  NIL must not be
+ * passed in for <node>. *)
+
+PROCEDURE insert ( node  : NodePtr;
+                   key   : Key;
+                   value : DataPtr;
+              VAR status : Status ) : NodePtr;
+VAR
+    newNode : NodePtr;
+
+BEGIN
+
+    node := splayTopDown(node, key);
+    
+    (* bail out if key already exists *)
+    IF key =  node^.key THEN
+        status := keyNotUnique;
+        RETURN node;
+    END; (* IF *)
+    
+    (* allocate a new node *)
+    NEW(newNode);
+    
+    (* bail out if allocation failed *)
+    IF newNode = NIL THEN
+        status := allocationFailed;
+        RETURN node;
+    END; (* IF *)
+    
+    (* initialise the new node *)
+    newNode^.key := key;
+    newNode^.value := value;
+    
+    IF key < node^.key THEN
+        newNode^.left := node^.left;
+        newNode^.right := node;
+        node^.left := bottom;
+    ELSE (* key > node^.key *)
+        newNode^.right := node^.right;
+        newNode^.left := node;
+        node^.right := bottom;
+    END; (* IF *)
+    
+    (* pass status and return the new root node to caller *)
+    status := success;
+    RETURN newNode;
+
+END insert;
+
+
+(* ---------------------------------------------------------------------------
+ * private function:  remove( node, key, status )
+ * ---------------------------------------------------------------------------
+ *
+ * Searches the tree whose root node is <node>  for a node  whose key is <key>
+ * and if found,  removes that node  and  rebalances the resulting tree,  then
+ * returns the new root  of the resulting tree.  If no node with <key> exists,
+ * then the current root node is returned.
+ *
+ * The  status of the operation  is passed back  in <status>.  NIL must not be
+ * passed in for <node>. *)
+
+PROCEDURE remove ( node : NodePtr; key : Key; VAR status : Status ) : NodePtr;
+
+VAR
+    newRoot : NodePtr;
+
+BEGIN
+
+    (* bail out if bottom has been reached *)
+    IF node = bottom THEN
+        status := entryNotFound;
+        RETURN node;
+    END; (* IF *)
+    
+    node := splayTopDown(node, key);
+    
+    (* bail out if key not found *)
+    IF key # node^.key THEN
+        status := entryNotFound;
+        RETURN node;
+    END; (* IF *)
+    
+    (* isolate the node to be removed *)
+    IF node^.left = bottom THEN
+        newRoot := node^.right;
+    ELSE
+        newRoot := splayTopDown(node, key);
+        newRoot^.right := node^.right;
+    END; (* IF *)
+    
+    (* deallocate the isolated node *)
+    DISPOSE(node);
+    
+    (* pass status and return the new root node to caller *)
+    status := success;
+    RETURN newNode;
+
+END remove;
+
+
+(* ---------------------------------------------------------------------------
+ * private procedure:  removeAll( node )
+ * ---------------------------------------------------------------------------
+ *
+ * Recursively  removes  all nodes  from the tree  whose root node  is <node>.
+ * NIL must not be passed in for <node>. *)
+ 
+PROCEDURE removeAll ( node : NodePtr );
+
+BEGIN
+
+    (* bail out if already at the bottom *)
+    IF node = bottom THEN
+        RETURN;
+    END; (* IF *)
+    
+    (* remove the left subtree *)
+    removeAll(node^.left);
+    
+    (* remove the right subtree *)
+    removeAll(node^.right);
+    
+    (* deallocated descriptor *)
+    DISPOSE(node);
+    
+    RETURN;
+    
+END removeAll;
 
 
 (* ---------------------------------------------------------------------------
@@ -251,13 +604,9 @@ BEGIN
 
     bottom := ^sentinel;
 
-    sentinel.level := 0;
     sentinel.key := 0;
     sentinel.value := NIL;
     sentinel.left := bottom;
     sentinel.right := bottom;
-    
-    previousNode := NIL;
-    candidateNode := NIL;
  
 END Splay.
