@@ -50,38 +50,8 @@
 
 DEFINITION (* OF *) MODULE KVS;
 
-FROM Collections IMPORT Capacity, DataPtr, Key, Status;
-
-
-CONST
-
-(* ---------------------------------------------------------------------------
- * Default table size
- * ------------------------------------------------------------------------ *)
-
-    defaultCapacity = 1031;  (* 1031 buckets *)
-
-
-(* ---------------------------------------------------------------------------
- * Maximum table size
- * ------------------------------------------------------------------------ *)
-
-    maximumCapacity = 16777259;  (* more than 16 million buckets *)
-
-
-(* ---------------------------------------------------------------------------
- * Maximum number of entries
- * ------------------------------------------------------------------------ *)
-
-    entryLimit = 1024*1024*1024;  (* more than 1 billion entries *)
-
-
-(* ---------------------------------------------------------------------------
- * Synonyms for status codes
- * ------------------------------------------------------------------------ *)
- 
-    invalidTable = invalidCollection;
-    entryLimitReached = collectionFull;
+FROM SYSTEM IMPORT ADDRESS, ADR, TSIZE;
+FROM Storage IMPORT ALLOCATE, DEALLOCATE;
 
 
 TYPE
@@ -100,7 +70,7 @@ TYPE
         refCount         : CARDINAL;
         zeroTerminated,
         markedForRemoval : BOOLEAN;
-    END; (* NodeDescriptor *)
+    END; (* EntryDescriptor *)
 
 
 (* ---------------------------------------------------------------------------
@@ -132,8 +102,53 @@ TYPE
 
 PROCEDURE new ( size : Capacity; VAR status : Status ) : Table;
 
+VAR
+    index, bucketCount : Capacity;
+    bucketPtr : EntryPtr;
+    newTable : Table;
+
 BEGIN
-    (* TO DO *)
+    
+    (* bail out if size is larger than capacity limit *)
+    IF size > maximumCapacity THEN
+        status := invalidSize;
+        RETURN NIL;
+    END; (* IF *)
+        
+    (* determine table size *)
+    IF size = 0 THEN
+        bucketCount := defaultCapacity;
+    ELSE
+        bucketCount := size;
+    END; (* IF *)
+    
+    (* allocate new table *)
+    ALLOCATE(newTable, TSIZE(TableDescriptor) + bucketCount * TSIZE(EntryPtr));
+    
+    (* bail out if allocation failed *)
+    IF newTable = NIL THEN
+        status := allocationFailed;
+        RETURN NIL;
+    END; (* IF *)
+    
+    (* initialise table meta data *)
+    newTable^.lastRetrievedEntry := NIL;
+    newTable^.entryCount := 0;
+    newTable^.bucketCount := bucketCount;
+    
+    (* initialis buckets with NIL pointers *)
+    index := 0;
+    WHILE index < bucketCount DO
+        (* newTable^.bucket[index] := NIL; *)
+        bucketPtr := ADR(newTable^.bucket) + TSIZE(EntryPtr) * index;
+        bucketPtr^ := NIL;
+        INC(index);
+    END; (* WHILE *)
+
+    (* pass table and status to caller *)
+    status := success;
+    RETURN newTable;
+    
 END new;
 
 
@@ -159,9 +174,113 @@ PROCEDURE storeValue ( table          : Table;
                        size           : CARDINAL;
                        zeroTerminated : BOOLEAN;
                    VAR status         : Status );
+VAR
+    index : Capacity;
+    bucket, thisEntry, newEntry : EntryPtr;
 
 BEGIN
-    (* TO DO *)
+
+    (* bail out if table is NIL *)
+    IF table = NIL THEN
+        status := invalidTable;
+        RETURN;
+    END; (* IF *)
+        
+    (* bail out if key is zero *)
+    IF key = 0 THEN
+        status := invalidKey;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if value is NIL *)
+    IF value = NIL THEN
+        status := invalidValue;
+        RETURN;
+    END; (* IF *)
+    
+    (* size must not be zero if data is null-terminated *)
+    IF (* size unknown *) size = 0 THEN
+        IF zeroTerminated THEN
+            (* calculate size *)
+            size := zeroTerminatedDataSize(value);
+            IF size = 0 THEN
+                status := invalidSize;
+                RETURN;
+            END; (* IF *)
+        ELSE (* NOT zeroTerminated *)
+            status := invalidSize;
+            RETURN;
+        END; (* IF *)
+    END; (* IF *)
+    
+    (* calculate the bucket index for key *)
+    index := key MOD table^.bucketCount;
+    bucket := ADR(table^.bucket) + TSIZE(EntryPtr) * index;
+    
+    IF (* bucket is empty *) bucket^ = NIL THEN
+        
+        (* create a new entry *)
+        newEntry := newEntryWithCopy(key, value, size, zeroTerminated, status);
+        
+        (* bail out if allocation failed *)
+        IF newEntry = NIL THEN
+            status := allocationFailed;
+            RETURN;
+        END; (* IF *)
+        
+        (* link the empty bucket to the new entry *)
+        bucket^ := newEntry;
+        
+        (* update the entry counter *)
+        INC(table^.entryCount);
+        
+        (* set status *)
+        status := success;
+        
+    ELSE (* bucket is not empty *)
+        
+        (* check every entry in this bucket for a key match *)
+        thisEntry := bucket^;
+        WHILE thisEntry^.ket # key AND thisEntry^.next # NIL DO
+            thisEntry := thisEntry^.next;
+        END; (* WHILE *)
+        
+        (* the passed in key is unique if there was no key match *)
+        
+        IF (* key is unique *) thisEntry^.key # key THEN
+            
+            (* create a new entry *)
+            newEntry :=
+                newEntryWithCopy(key, value, size, zeroTerminated, status);
+            
+            (* bail out if allocation failed *)
+            IF newEntry = NIL THEN
+                (* status was already set *)
+                RETURN;
+            END; (* IF *)
+            
+            (* link the final entry in the chain to the new entry *)
+            thisEntry->next = newEntry;
+            
+            (* update the entry counter *)
+            INC(table^.entryCount);
+            
+            (* set status *)
+            status := success;
+            
+        ELSE (* key is not unique *)
+            
+            (* do not add a new entry *)
+            
+            (* set status *)
+            status := entryNotUnique;
+            
+        END; (* IF *)
+        
+    END; (* IF *)
+    
+    RETURN;
+    
 END storeValue;
 
 
@@ -187,9 +306,48 @@ PROCEDURE storeReference ( table          : Table;
                            size           : CARDINAL;
                            zeroTerminated : BOOLEAN;
                        VAR status         : Status );
+VAR
+    index : Capacity;
+    bucket, thisEntry, newEntry : EntryPtr;
 
 BEGIN
-    (* TO DO *)
+    
+    (* bail out if table is NIL *)
+    IF table = NIL THEN
+        status := invalidTable;
+        RETURN;
+    END; (* IF *)
+        
+    (* bail out if key is zero *)
+    IF key = 0 THEN
+        status := invalidKey;
+        RETURN;
+    END; (* IF *)
+    
+    (* bail out if value is NIL *)
+    IF value = NIL THEN
+        status := invalidValue;
+        RETURN;
+    END; (* IF *)
+    
+    (* size must not be zero if data is null-terminated *)
+    IF (* size unknown *) size = 0 THEN
+        IF zeroTerminated THEN
+            (* calculate size *)
+            size := zeroTerminatedDataSize(value);
+            IF size = 0 THEN
+                status := invalidSize;
+                RETURN;
+            END; (* IF *)
+        ELSE (* NOT zeroTerminated *)
+            status := invalidSize;
+            RETURN;
+        END; (* IF *)
+    END; (* IF *)
+    
+    
+    
+    
 END storeReference;
 
 
