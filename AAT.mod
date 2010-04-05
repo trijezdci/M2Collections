@@ -354,7 +354,7 @@ BEGIN
         removeAll(tree^.root);
         
         (* deallocate descriptor *)
-        DISPOSE();
+        DISPOSE(tree);
     
     END; (* IF *)
     
