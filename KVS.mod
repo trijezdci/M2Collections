@@ -45,10 +45,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,  EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *  
- *)
+ *) (*!m2pim*)
 
-
-DEFINITION (* OF *) MODULE KVS;
+IMPLEMENTATION MODULE KVS;
 
 FROM SYSTEM IMPORT ADDRESS, ADR, TSIZE;
 FROM Storage IMPORT ALLOCATE, DEALLOCATE;
@@ -70,7 +69,7 @@ TYPE
         refCount         : CARDINAL;
         zeroTerminated,
         markedForRemoval : BOOLEAN;
-    END; (* EntryDescriptor *)
+    END; (* Entry *)
 
 
 (* ---------------------------------------------------------------------------
@@ -260,7 +259,7 @@ BEGIN
             END; (* IF *)
             
             (* link the final entry in the chain to the new entry *)
-            thisEntry->next = newEntry;
+            thisEntry^.next = newEntry;
             
             (* update the entry counter *)
             INC(table^.entryCount);
@@ -345,8 +344,7 @@ BEGIN
         END; (* IF *)
     END; (* IF *)
     
-    
-    
+    (* incomplete, to do: transcribe from C codebase *)
     
 END storeReference;
 
@@ -363,7 +361,7 @@ END storeReference;
  *
  * The status of the operation is passed back in <status>. *)
 
-PROCEDURE entryExists ( trie   : Trie;
+PROCEDURE entryExists ( table  : Table;
                         key    : Key;
                     VAR status : Status ) : DataPtr;
 
