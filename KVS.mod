@@ -68,7 +68,7 @@ TYPE
         next             : EntryPtr;
         refCount         : CARDINAL;
         zeroTerminated,
-        markedForRemoval : BOOLEAN;
+        markedForRemoval : BOOLEAN
     END; (* Entry *)
 
 
@@ -111,14 +111,14 @@ BEGIN
     (* bail out if size is larger than capacity limit *)
     IF size > maximumCapacity THEN
         status := invalidSize;
-        RETURN NIL;
+        RETURN NIL
     END; (* IF *)
         
     (* determine table size *)
     IF size = 0 THEN
-        bucketCount := defaultCapacity;
+        bucketCount := defaultCapacity
     ELSE
-        bucketCount := size;
+        bucketCount := size
     END; (* IF *)
     
     (* allocate new table *)
@@ -127,7 +127,7 @@ BEGIN
     (* bail out if allocation failed *)
     IF newTable = NIL THEN
         status := allocationFailed;
-        RETURN NIL;
+        RETURN NIL
     END; (* IF *)
     
     (* initialise table meta data *)
@@ -141,12 +141,12 @@ BEGIN
         (* newTable^.bucket[index] := NIL; *)
         bucketPtr := ADR(newTable^.bucket) + TSIZE(EntryPtr) * index;
         bucketPtr^ := NIL;
-        INC(index);
+        INC(index)
     END; (* WHILE *)
 
     (* pass table and status to caller *)
     status := success;
-    RETURN newTable;
+    RETURN newTable
     
 END new;
 
@@ -182,19 +182,19 @@ BEGIN
     (* bail out if table is NIL *)
     IF table = NIL THEN
         status := invalidTable;
-        RETURN;
+        RETURN
     END; (* IF *)
         
     (* bail out if key is zero *)
     IF key = 0 THEN
         status := invalidKey;
-        RETURN;
+        RETURN
     END; (* IF *)
     
     (* bail out if value is NIL *)
     IF value = NIL THEN
         status := invalidValue;
-        RETURN;
+        RETURN
     END; (* IF *)
     
     (* size must not be zero if data is null-terminated *)
@@ -204,12 +204,12 @@ BEGIN
             size := zeroTerminatedDataSize(value);
             IF size = 0 THEN
                 status := invalidSize;
-                RETURN;
+                RETURN
             END; (* IF *)
         ELSE (* NOT zeroTerminated *)
             status := invalidSize;
-            RETURN;
-        END; (* IF *)
+            RETURN
+        END (* IF *)
     END; (* IF *)
     
     (* calculate the bucket index for key *)
@@ -224,7 +224,7 @@ BEGIN
         (* bail out if allocation failed *)
         IF newEntry = NIL THEN
             status := allocationFailed;
-            RETURN;
+            RETURN
         END; (* IF *)
         
         (* link the empty bucket to the new entry *)
@@ -234,14 +234,14 @@ BEGIN
         INC(table^.entryCount);
         
         (* set status *)
-        status := success;
+        status := success
         
     ELSE (* bucket is not empty *)
         
         (* check every entry in this bucket for a key match *)
         thisEntry := bucket^;
         WHILE thisEntry^.ket # key AND thisEntry^.next # NIL DO
-            thisEntry := thisEntry^.next;
+            thisEntry := thisEntry^.next
         END; (* WHILE *)
         
         (* the passed in key is unique if there was no key match *)
@@ -250,12 +250,12 @@ BEGIN
             
             (* create a new entry *)
             newEntry :=
-                newEntryWithCopy(key, value, size, zeroTerminated, status);
+                newEntryWithCopy(key, value, size, zeroTerminated, status)
             
             (* bail out if allocation failed *)
             IF newEntry = NIL THEN
                 (* status was already set *)
-                RETURN;
+                RETURN
             END; (* IF *)
             
             (* link the final entry in the chain to the new entry *)
@@ -265,20 +265,20 @@ BEGIN
             INC(table^.entryCount);
             
             (* set status *)
-            status := success;
+            status := success
             
         ELSE (* key is not unique *)
             
             (* do not add a new entry *)
             
             (* set status *)
-            status := entryNotUnique;
+            status := entryNotUnique
             
-        END; (* IF *)
+        END (* IF *)
         
     END; (* IF *)
     
-    RETURN;
+    RETURN
     
 END storeValue;
 
@@ -314,19 +314,19 @@ BEGIN
     (* bail out if table is NIL *)
     IF table = NIL THEN
         status := invalidTable;
-        RETURN;
+        RETURN
     END; (* IF *)
         
     (* bail out if key is zero *)
     IF key = 0 THEN
         status := invalidKey;
-        RETURN;
+        RETURN
     END; (* IF *)
     
     (* bail out if value is NIL *)
     IF value = NIL THEN
         status := invalidValue;
-        RETURN;
+        RETURN
     END; (* IF *)
     
     (* size must not be zero if data is null-terminated *)
@@ -336,12 +336,12 @@ BEGIN
             size := zeroTerminatedDataSize(value);
             IF size = 0 THEN
                 status := invalidSize;
-                RETURN;
-            END; (* IF *)
+                RETURN
+            END (* IF *)
         ELSE (* NOT zeroTerminated *)
             status := invalidSize;
-            RETURN;
-        END; (* IF *)
+            RETURN
+        END (* IF *)
     END; (* IF *)
     
     (* incomplete, to do: transcribe from C codebase *)
@@ -589,7 +589,7 @@ END entryCount;
 PROCEDURE isResizable ( table : Table ) : BOOLEAN;
 
 BEGIN
-    RETURN FALSE;
+    RETURN FALSE
 END isResizable;
 
 
